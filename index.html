@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
+    <title>預售屋價格與稅費計算工具</title>
+    <script src="https://cdn.tailwindcss.com?v=20260527"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js?v=20260527"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght=300;400;500;700&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #fafafa; }
+        [v-cloak] { display: none; }
+        input[type=number]::-webkit-outer-spin-button,
+        input[type=number]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+        .pulse-border {
+            animation: borderPulse 2s infinite ease-in-out;
+        }
+        @keyframes borderPulse {
+            0%, 100% { border-color: rgba(245, 158, 11, 0.6); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.2); }
+            50% { border-color: rgba(245, 158, 11, 1); box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.3); }
+        }
+    </style>
+</head>
+<body class="p-2 md:p-6 text-slate-800 bg-slate-50">
+
+    <div id="app" v-cloak 
+         class="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border-2 border-amber-400 shadow-amber-100/40 transition-all duration-300 my-2 md:my-4">
+        
+        <div class="bg-gradient-to-r from-amber-400 to-yellow-400 p-4 md:p-6 text-slate-900 text-center border-b border-yellow-200">
+            <h1 class="text-xl md:text-3xl font-bold tracking-wider">預售屋價格與稅費計算工具</h1>
+            <p class="text-xs md:text-sm font-medium opacity-90 mt-1.5">符合台灣房地合一稅 2.0 規範 • 精準試算買賣自備款與稅費分析</p>
+        </div>
+
+        <div class="flex border-b border-slate-200 bg-slate-50 font-medium">
+            <button @click="activeTab = 'buyer'" :class="activeTab === 'buyer' ? 'border-b-4 border-amber-500 text-amber-600 bg-white font-bold' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'" class="flex-1 py-3 md:py-4 text-center transition-all duration-200 text-sm md:text-lg flex justify-center items-center gap-2">🔄 換約試算</button>
+            <button @click="activeTab = 'seller'" :class="activeTab === 'seller' ? 'border-b-4 border-amber-500 text-amber-600 bg-white font-bold' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'" class="flex-1 py-3 md:py-4 text-center transition-all duration-200 text-sm md:text-lg flex justify-center items-center gap-2">🧾 稅費試算</button>
+        </div>
+
+        <div class="p-3 md:p-6">
+            <div v-if="activeTab === 'buyer'" class="space-y-4 md:space-y-6">
+                
+                <div class="bg-slate-50 p-3 md:p-4 rounded-xl border border-slate-200">
+                    <h2 class="text-sm md:text-lg font-bold text-slate-700 mb-3 md:mb-4 flex items-center gap-2 border-b pb-2 border-slate-200">📋 1. 物件基本資料</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4">
+                        <div class="md:col-span-4">
+                            <label class="block text-xs md:text-sm font-medium text-slate-600 mb-1">物件名稱</label>
+                            <input type="text" v-model="syncData.name" placeholder="例如：捷市達" class="w-full px-3 py-1.5 md:py-2 border border-slate-300 rounded-lg bg-white shadow-sm text-sm focus:ring-2 focus:ring-amber-400 focus:outline-none">
+                        </div>
+                
+                        <div class="md:col-span-4">
+                            <label class="block text-xs md:text-sm font-medium text-slate-600 mb-1">原始建商合約總價 (萬元)</label>
+                            <input type="number" step="0.001" v-model.number="syncData.contractPrice" @wheel="preventScrollChange" class="w-full px-3 py-1.5 md:py-2 border border-slate-300 rounded-lg bg-white shadow-sm font-mono text-sm focus:ring-2 focus:ring-amber-400 focus:outline-none">
+                        </div>
+            
+                        <div class="md:col-span-2">
+                            <label class="block text-xs md:text-sm font-medium text-slate-600 mb-1">貸款成數 (%)</label>
+                            <input type="number" step="0.1" v-model.number="buyerForm.loanRate" @wheel="preventScrollChange" class="w-full px-3 py-1.5 md:py-2 border border-slate-300 rounded-lg bg-white shadow-sm font-mono text-sm focus:ring-2 focus:ring-amber-400 focus:outline-none">
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <label class="block text-xs md:text-sm font-medium text-slate-600 mb-1">建商暫收款 (萬元)</label>
+                            <input type="number" step="0.001" v-model.number="buyerForm.escrow" @wheel="preventScrollChange" class="w-full px-3 py-1.5 md:py-2 border border-slate-300 rounded-lg bg-white shadow-sm font-mono text-sm focus:ring-2 focus:ring-amber-400 focus:outline-none">
+                        </div>
+
+                        <div class="md:col-span-4">
+                            <label class="block text-xs md:text-sm font-medium text-slate-600 mb-1">已付建商款項 (萬元)</label>
+                            <input type="number" step="0.001" v-model.number="syncData.paidPrice" @wheel="preventScrollChange" :class="isPaidPriceOverTotal ? 'border-red-500 ring-1 ring-red-200 focus:ring-red-400' : 'border-slate-300 focus:ring-amber-400'" class="w-full px-3 py-1.5 md:py-2 border bg-white rounded-lg font-mono text-sm focus:ring-2 focus:focus:outline-none">
+                            <div v-if="isPaidPriceOverTotal" class="text-[11px] text-red-500 mt-1 font-sans">⚠️ 已付金額不可大於合約總價</div>
+                        </div>
+
+                        <div class="md:col-span-4">
+                            <label class="block text-xs md:text-sm font-medium text-slate-400 mb-1 flex items-center gap-1">未付建商尾款 (萬元) <span class="text-[10px] bg-slate-200 text-slate-600 px-1 rounded">自動連動</span></label>
+                            <input type="text" :value="formatValue(autoUnpaidPrice)" readonly class="w-full px-3 py-1.5 md:py-2 border border-slate-200 bg-slate-200/70 text-slate-500 rounded-lg font-mono text-sm cursor-not-allowed focus:outline-none">
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <label class="block text-xs md:text-sm font-medium text-slate-600 mb-1">代書費 (萬元)</label>
+                            <input type="number" step="0.001" v-model.number="buyerForm.scrivenerFee" @wheel="preventScrollChange" class="w-full px-3 py-1.5 md:py-2 border border-slate-300 bg-white rounded-lg font-mono text-sm focus:ring-2 focus:ring-amber-400 focus:outline-none">
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <label class="block text-xs md:text-sm font-medium text-slate-400 mb-1 flex items-center gap-1">履保費 (萬元) <span class="text-[10px] bg-amber-100 text-amber-700 px-1 rounded">依方案自動</span></label>
+                            <input type="text" value="依方案自動算" readonly class="w-full px-3 py-1.5 md:py-2 border border-slate-200 bg-slate-100 text-slate-400 rounded-lg text-xs text-center cursor-not-allowed focus:outline-none">
+                        </div>
+
+                        <div class="md:col-span-4">
+                            <label class="block text-xs md:text-sm font-medium text-slate-600 mb-1">房屋淨坪數 (扣車坪)</label>
+                            <input type="number" step="0.001" v-model.number="buyerForm.purePing" @wheel="preventScrollChange" class="w-full px-3 py-1.5 md:py-2 border border-slate-300 rounded-lg bg-white shadow-sm font-mono text-sm focus:ring-2 focus:ring-amber-400 focus:outline-none">
+                        </div>
+
+                        <div class="md:col-span-4">
+                            <label class="block text-xs md:text-sm font-medium text-slate-600 mb-1">車位總價 (萬元)</label>
+                            <input type="number" step="0.001" v-model.number="buyerForm.parkingPrice" @wheel="preventScrollChange" class="w-full px-3 py-1.5 md:py-2 border border-slate-300 rounded-lg bg-white shadow-sm font-mono text-sm focus:ring-2 focus:ring-amber-400 focus:outline-none">
+                        </div>
+
+                        <div class="md:col-span-4">
+                            <label class="block text-xs md:text-sm font-medium text-slate-600 mb-1">買方仲介服務費 (%)</label>
+                            <input type="number" step="0.1" v-model.number="buyerForm.feeRate" @wheel="preventScrollChange" class="w-full px-3 py-1.5 md:py-2 border border-slate-300 rounded-lg bg-white shadow-sm font-mono text-sm focus:ring-2 focus:ring-amber-400 focus:outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50/60 p-4 rounded-xl border border-amber-200">
+                    <h2 class="text-sm md:text-lg font-bold text-amber-800 mb-3 flex items-center gap-2">💰 2. 預計成交價</h2>
+                    <div class="flex flex-col sm:flex-row gap-3 items-end">
+                        <div class="flex-1 w-full">
+                            <div class="relative">
+                                <input type="number" step="0.001" v-model.number="inputDealPrice" @keyup.enter="addDeal" @wheel="preventScrollChange" class="w-full pl-4 pr-16 py-2.5 bg-white border border-amber-300 rounded-xl text-base md:text-lg font-mono font-bold text-amber-900 shadow-sm focus:ring-2 focus:ring-amber-500 focus:outline-none" placeholder="請輸入欲試算的新成交總價">
+                                <span class="absolute right-4 top-2.5 md:top-3 text-slate-400 text-sm md:text-base font-medium">萬元</span>
+                            </div>
+                        </div>
+                        <button @click="addDeal" class="w-full sm:w-auto px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 shrink-0 text-sm md:text-base">
+                            ➕ 新增試算方案
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-sm md:text-lg font-bold text-slate-700 flex items-center gap-2">📊 3. 交易方案對比歷史</h2>
+                        <button v-if="buyerResults.length > 0" @click="buyerResults = []" class="text-xs text-red-500 hover:underline">🗑️ 清空所有紀錄</button>
+                    </div>
+
+                    <div class="text-center py-8 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-xs md:text-sm" v-if="computedBuyerResults.length === 0">
+                        目前尚無歷史計算方案資料
+                    </div>
+
+                    <div class="space-y-4" v-else>
+                        <div v-for="(item, index) in computedBuyerResults" :key="item.id" 
+                             class="bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:border-amber-400 transition-colors overflow-hidden">
+                            
+                            <div class="flex flex-col lg:flex-row items-stretch">
+                                <div class="bg-slate-100 lg:w-20 px-3 py-2 lg:py-0 flex lg:flex-col justify-center items-center border-b lg:border-b-0 lg:border-r border-slate-200 shrink-0">
+                                    <span class="font-bold text-slate-700 text-sm">#{{ computedBuyerResults.length - index }}</span>
+                                </div>
+
+                                <div class="flex-1 p-3 md:p-4 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                                    <div class="md:col-span-7 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-center border-b md:border-b-0 md:border-r pb-3 md:pb-0 pr-0 md:pr-4 border-slate-100">
+                                        <div>
+                                            <div class="text-slate-500 text-xs md:text-sm">新換約總價</div>
+                                            <div class="text-base md:text-xl font-extrabold font-mono text-slate-900 mt-1">{{ formatValue(item.dealPrice) }} 萬</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-slate-500 text-xs md:text-sm">單價(扣車)</div>
+                                            <div class="text-base md:text-xl font-extrabold font-mono text-amber-700 mt-1">{{ formatValue(item.unitPrice) }} 萬</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-slate-500 text-xs md:text-sm">合約價差</div>
+                                            <div class="text-base md:text-xl font-extrabold font-mono text-slate-800 mt-1">{{ formatValue(item.spread) }} 萬</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-slate-500 text-xs md:text-sm">仲介服務費</div>
+                                            <div class="text-base md:text-xl font-extrabold font-mono text-slate-800 mt-1">{{ formatValue(item.buyerFee) }} 萬</div>
+                                        </div>
+                                        <div class="col-span-2 sm:col-span-1">
+                                            <div class="text-slate-500 text-xs md:text-sm">履保費用</div>
+                                            <div class="text-base md:text-xl font-extrabold font-mono text-amber-600 mt-1">{{ formatValue(item.escrowFee) }} 萬</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="md:col-span-5 flex flex-row items-center gap-3">
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1">
+                                            <div class="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-3 flex flex-col justify-center">
+                                                <span class="text-xs font-bold text-amber-800 tracking-wider">💰 換約所需自備款</span>
+                                                <span class="text-xl md:text-2xl font-black text-amber-600 font-mono mt-0.5">{{ formatValue(item.totalOwnCapital) }} <span class="text-xs font-normal">萬元</span></span>
+                                            </div>
+                                            <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col justify-center">
+                                                <span class="text-xs font-bold text-slate-500 tracking-wider">🏠 交屋尾款 + 暫收款</span>
+                                                <span class="text-xl font-black text-slate-700 font-mono mt-0.5">{{ formatValue(item.finalPayment) }} <span class="text-xs font-normal">萬元</span></span>
+                                            </div>
+                                        </div>
+                                        <button @click="removeBuyerResult(index)" class="text-slate-300 hover:text-red-500 hover:bg-red-50 p-2 rounded-xl transition-all font-bold flex items-center justify-center shrink-0 border border-transparent hover:border-red-200 self-center">❌</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-slate-50/60 px-4 py-2 border-t border-slate-100 flex flex-col gap-0.5 text-slate-500 text-[11px] font-mono leading-relaxed">
+                                <div>• 換約自備款 = 已付建商款項({{formatValue(syncData.paidPrice)}}) + 合約價差({{formatValue(item.spread)}}) + 仲介服務費({{formatValue(item.buyerFee)}}) + 代書費({{formatValue(item.scrivenerFee)}}) + 履保費用({{formatValue(item.escrowFee)}}) = <span class="font-bold text-amber-700">{{ formatValue(item.totalOwnCapital) }} 萬元</span></div>
+                                <div>• 成屋交屋款 = 未付建商尾款({{formatValue(autoUnpaidPrice)}}) + 建商暫收款({{formatValue(item.escrow)}}) = <span class="font-bold text-slate-700">{{ formatValue(item.finalPayment) }} 萬元</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="activeTab === 'seller'" class="space-y-4 md:space-y-6">
+                <div class="bg-slate-50 p-3 md:p-4 rounded-xl border border-slate-200">
+                    <h2 class="text-sm md:text-lg font-bold text-slate-700 mb-3 md:mb-4 flex items-center gap-2 border-b pb-2 border-slate-200">📋 1. 交易時間、款項與成本設定</h2>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3 md:gap-4">
+                        <div class="md:col-span-4">
+                            <label class="block text-xs md:text-sm font-medium text-slate-600 mb-1 flex items-center gap-1">原始取得日期</label>
+                            <input type="date" v-model="sellerForm.acquireDate" class="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-amber-400 focus:outline-none">
+                            <div v-if="isAfterNewLaw" class="mt-1.5 text-[11px] font-bold text-red-500 bg-red-50 border border-red-200 rounded-md p-1.5 leading-normal animate-pulse">
+                                ⚠️ 新制換約限制：此合約轉售須符合內政部特殊換約資格，請務必確認是否已取得主管機關「核准函」方可辦理轉售！
+                            </div>
+                        </div>
+
+                        <div class="md:col-span-4">
+                            <label class="block text-xs md:text-sm font-medium text-slate-600 mb-1">預計換約讓渡日</label>
+                            <input type="date" v-model="sellerForm.transferDate" class="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-amber-400 focus:outline-none">
+                        </div>
+
+                        <div class="md:col-span-4">
+                            <label class="block text-xs md:text-sm font-medium text-slate-600 mb-1 flex items-center gap-1">原始建商合約總價 (萬元) <span class="text-[10px] bg-indigo-100 text-indigo-700 px-1 rounded font-normal">🔄 跨頁同步</span></label>
+                            <input type="number" step="0.001" v-model.number="syncData.contractPrice" @wheel="preventScrollChange" class="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white font-mono shadow-sm focus:ring-2 focus:ring-amber-400 focus:outline-none">
+                        </div>
+
+                        <div class="md:col-span-4">
+                            <label class="block text-xs md:text-sm font-medium text-slate-600 mb-1 flex items-center gap-1">已付建商款項 (萬元) <span class="text-[10px] bg-indigo-100 text-indigo-700 px-1 rounded font-normal">🔄 跨頁同步</span></label>
+                            <input type="number" step="0.001" v-model.number="syncData.paidPrice" @wheel="preventScrollChange" :class="isPaidPriceOverTotal ? 'border-red-500 ring-1 ring-red-200' : 'border-slate-300'" class="w-full px-3 py-2 border rounded-lg bg-white font-mono shadow-sm focus:ring-2 focus:ring-amber-400 focus:outline-none">
+                        </div>
+
+                        <div class="md:col-span-4">
+                            <label class="block text-xs md:text-sm font-medium text-slate-700 font-bold mb-1">預計出售換約總價 (萬元)</label>
+                            <input type="number" step="0.001" v-model.number="sellerForm.dealPrice" @wheel="preventScrollChange" class="w-full px-3 py-2 border-2 rounded-lg bg-white font-mono font-bold shadow-sm focus:ring-2 focus:ring-amber-400 focus:outline-none">
+                        </div>
+
+                        <div class="md:col-span-4">
+                            <label class="block text-xs md:text-sm font-medium text-slate-600 mb-1">費用扣除認列方式</label>
+                            <select v-model="sellerForm.costMode" class="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white shadow-sm text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-400">
+                                <option value="itemized">核實扣除 (需提示成本支出證明)</option>
+                                <option value="standard">法定推計費用 (不需證明認列 3%)</option>
+                            </select>
+                        </div>
+
+                        <div v-if="sellerForm.costMode === 'standard'" class="col-span-1 sm:col-span-2 md:col-span-12 flex items-center bg-amber-50/70 p-3 rounded-xl border border-amber-200 mt-2">
+                            <p class="text-xs md:text-sm text-amber-900 leading-relaxed">
+                                💡 <span class="font-bold">推計費用模式：</span>不提示成本支出證明。移轉費用將按「(已付建商款 + 價差) × 3%」與「30萬上限」取其低者扣除。
+                            </p>
+                        </div>
+
+                        <div v-slot="sellerForm.costMode === 'itemized'" v-show="sellerForm.costMode === 'itemized'" class="col-span-1 sm:col-span-2 md:col-span-12 grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-100 p-3 rounded-xl border border-slate-300 mt-1">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">1. 仲介服務費 (萬元)</label>
+                                <div class="relative">
+                                    <input type="number" step="0.001" v-model.number="sellerForm.customBrokerFee" @wheel="preventScrollChange" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+                                    <span class="absolute right-2 top-1.5 text-[10px] text-slate-400 font-sans">預設4%可改</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-400 mb-1 flex items-center gap-1">2. 履保費用 (萬元) <span class="text-[9px] bg-slate-200 text-slate-600 px-1 rounded">自動運算</span></label>
+                                <input type="text" :value="formatValue(sellerAutoEscrowFee)" readonly class="w-full px-3 py-1.5 border border-slate-200 bg-slate-200/60 text-slate-500 rounded-lg font-mono text-sm cursor-not-allowed">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-400 mb-1 flex items-center gap-1">3. 建商換約手續費 (萬元) <span class="text-[9px] bg-slate-200 text-slate-600 px-1 rounded">合約千分之1</span></label>
+                                <input type="text" :value="formatValue(sellerAutoTransferFee)" readonly class="w-full px-3 py-1.5 border border-slate-200 bg-slate-200/60 text-slate-500 rounded-lg font-mono text-sm cursor-not-allowed">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-3 gap-2">
+                        <h2 class="text-sm md:text-lg font-bold text-slate-700 flex items-center gap-2">📊 2. 房地合一稅率級距試算</h2>
+                        <div class="text-xs bg-slate-200 px-3 py-1 rounded-full text-slate-700 font-medium">實際持有天數：<span class="text-amber-700 font-bold font-mono">{{ sellerDurationText }}</span></div>
+                    </div>
+       
+                    <div class="w-full overflow-x-auto border border-slate-200 rounded-xl shadow-sm bg-white">
+                        <table class="w-full text-left border-collapse min-w-[760px]">
+                            <thead>
+                                <tr class="bg-slate-800 text-white text-xs md:text-sm">
+                                    <th class="p-2.5 md:p-3 text-left w-[25%]">法律規定持有時間 (預售屋換約)</th>
+                                    <th class="p-2.5 md:p-3 text-left w-[8%]">稅率</th>
+                                    <th class="p-2.5 md:p-3 text-left w-[11%]">當前判定</th>
+                                    <th class="p-2.5 md:p-3 text-center w-[16%]">稅前獲利</th>
+                                    <th class="p-2.5 md:p-3 text-center w-[4%] text-slate-400 font-normal"></th>
+                                    <th class="p-2.5 md:p-3 text-center w-[16%] text-rose-300">應繳房地合一稅金</th>
+                                    <th class="p-2.5 md:p-3 text-center w-[4%] text-slate-400 font-normal"></th>
+                                    <th class="p-2.5 md:p-3 text-center w-[16%] text-emerald-300">稅後獲利</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200 text-xs md:text-sm font-mono">
+                                <tr :class="sellerCurrentTier === 45 ? 'bg-amber-50/70 font-semibold border-l-4 border-amber-500' : ''">
+                                    <td class="p-2.5 md:p-3 font-sans text-left">2年以內 (0 ~ 2年)</td>
+                                    <td class="p-2.5 md:p-3 text-left"><span class="px-2 py-0.5 bg-red-100 text-red-700 rounded font-bold">45%</span></td>
+                                    <td class="p-2.5 md:p-3 text-left font-sans"><span v-if="sellerCurrentTier === 45" class="text-amber-600 font-bold">👉 符合</span><span v-else class="text-slate-400">-</span></td>
+                                    <td class="p-2.5 md:p-3 text-center text-slate-700 font-bold">{{ formatValue(sellerTaxTiers.tier45.beforeTaxProfit) }} 萬元</td>
+                                    <td class="p-2.5 md:p-3 text-center text-slate-400 font-bold font-sans text-base">-</td>
+                                    <td class="p-2.5 md:p-3 text-center text-rose-600 font-bold">{{ formatValue(sellerTaxTiers.tier45.tax) }} 萬元</td>
+                                    <td class="p-2.5 md:p-3 text-center text-slate-400 font-bold font-sans text-base">=</td>
+                                    <td class="p-2.5 md:p-3 text-center font-bold text-emerald-600">{{ formatValue(sellerTaxTiers.tier45.afterTaxProfit) }} 萬元</td>
+                                </tr>
+                                    <tr :class="sellerCurrentTier === 35 ? 'bg-amber-50/70 font-semibold border-l-4 border-amber-500' : ''">
+                                    <td class="p-2.5 md:p-3 font-sans text-left">超過2年，未滿5年 (2 ~ 5年)</td>
+                                    <td class="p-2.5 md:p-3 text-left"><span class="px-2 py-0.5 bg-orange-100 text-orange-700 rounded font-bold">35%</span></td>
+                                    <td class="p-2.5 md:p-3 text-left font-sans"><span v-if="sellerCurrentTier === 35" class="text-amber-600 font-bold">👉 符合</span><span v-else class="text-slate-400">-</span></td>
+                       <td class="p-2.5 md:p-3 text-center text-slate-700 font-bold">{{ formatValue(sellerTaxTiers.tier35.beforeTaxProfit) }} 萬元</td>
+                                    <td class="p-2.5 md:p-3 text-center text-slate-400 font-bold font-sans text-base">-</td>
+                                    <td class="p-2.5 md:p-3 text-center text-rose-600 font-bold">{{ formatValue(sellerTaxTiers.tier35.tax) }} 萬元</td>
+                                    <td class="p-2.5 md:p-3 text-center text-slate-400 font-bold font-sans text-base">=</td>
+                                    <td class="p-2.5 md:p-3 text-center font-bold text-emerald-600">{{ formatValue(sellerTaxTiers.tier35.afterTaxProfit) }} 萬元</td>
+                                </tr>
+                                <tr :class="sellerCurrentTier === 20 ? 'bg-amber-50/70 font-semibold border-l-4 border-amber-500' : ''">
+                                    <td class="p-2.5 md:p-3 font-sans text-left">超過5年，未滿10年 (5 ~ 10年)</td>
+                                    <td class="p-2.5 md:p-3 text-left"><span class="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded font-bold">20%</span></td>
+                                    <td class="p-2.5 md:p-3 text-left font-sans"><span v-if="sellerCurrentTier === 20" class="text-amber-600 font-bold">👉 符合</span><span v-else class="text-slate-400">-</span></td>
+                                    <td class="p-2.5 md:p-3 text-center text-slate-700 font-bold">{{ formatValue(sellerTaxTiers.tier20.beforeTaxProfit) }} 萬元</td>
+                                    <td class="p-2.5 md:p-3 text-center text-slate-400 font-bold font-sans text-base">-</td>
+                                    <td class="p-2.5 md:p-3 text-center text-rose-600 font-bold">{{ formatValue(sellerTaxTiers.tier20.tax) }} 萬元</td>
+                                    <td class="p-2.5 md:p-3 text-center text-slate-400 font-bold font-sans text-base">=</td>
+                                    <td class="p-2.5 md:p-3 text-center font-bold text-emerald-600">{{ formatValue(sellerTaxTiers.tier20.afterTaxProfit) }} 萬元</td>
+                                </tr>
+                                <tr :class="sellerCurrentTier === 15 ? 'bg-amber-50/70 font-semibold border-l-4 border-amber-500' : ''">
+                                    <td class="p-2.5 md:p-3 font-sans text-left">超過10年 以上</td>
+                                    <td class="p-2.5 md:p-3 text-left"><span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded font-bold">15%</span></td>
+                                    <td class="p-2.5 md:p-3 text-left font-sans"><span v-if="sellerCurrentTier === 15" class="text-amber-600 font-bold">👉 符合</span><span v-else class="text-slate-400">-</span></td>
+                                    <td class="p-2.5 md:p-3 text-center text-slate-700 font-bold">{{ formatValue(sellerTaxTiers.tier15.beforeTaxProfit) }} 萬元</td>
+                                    <td class="p-2.5 md:p-3 text-center text-slate-400 font-bold font-sans text-base">-</td>
+                                    <td class="p-2.5 md:p-3 text-center text-rose-600 font-bold">{{ formatValue(sellerTaxTiers.tier15.tax) }} 萬元</td>
+                                    <td class="p-2.5 md:p-3 text-center text-slate-400 font-bold font-sans text-base">=</td>
+                                    <td class="p-2.5 md:p-3 text-center font-bold text-emerald-600">{{ formatValue(sellerTaxTiers.tier15.afterTaxProfit) }} 萬元</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="mt-3 px-2 flex flex-col gap-1 text-[11px] font-medium text-slate-500 leading-normal border-t border-dashed border-slate-200 pt-2.5">
+                        <div>
+                            💡 <span class="font-bold">稅前獲利算式：</span>
+                            <span v-if="sellerForm.costMode === 'itemized'" class="text-indigo-600 font-bold">【核實扣除模式】預計出售總價 × 0.96 - 原始建商合約總價</span>
+                            <span v-else class="text-amber-600 font-bold">【法定推計模式】預計出售總價 - 原始建商合約總價</span>
+                        </div>
+                        <div>
+                            💡 <span class="font-bold">房地合一稅金算式：</span>
+                            <span v-if="sellerForm.costMode === 'itemized'">【核實扣除】(賣價 - 買價 - 服務費 - 履保費用 - 換約費) × 級距 %</span>
+                            <span v-else>【法定推計】[賣價 - 買價 - 移轉費用成本（即「(已付建商款 + 合約價差) × 3%」與「30萬上限」取其低者）] × 級距 %</span>
+                        </div>
+                        <div>
+                            💡 <span class="font-bold">稅後獲利算式（各級距皆同）：</span> 稅前獲利 - 當前級距稅金
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, reactive, computed, watch } = Vue;
+        createApp({
+            setup() {
+                const activeTab = ref('buyer');
+                
+                const getTodayStr = () => {
+                    const today = new Date();
+                    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                };
+
+                const syncData = reactive({
+                    name: '',
+                    contractPrice: null,
+                    paidPrice: null
+                });
+
+                const buyerForm = reactive({ 
+                    escrow: null, 
+                    scrivenerFee: 0.7, 
+                    loanRate: 80,      
+                    purePing: null, 
+                    parkingPrice: null, 
+                    feeRate: 2 
+                });
+             
+                const inputDealPrice = ref(null);
+                const buyerResults = ref([]);
+
+                const preventScrollChange = (e) => { e.target.blur(); };
+
+                const formatValue = (value) => {
+                    if (value === null || value === undefined || isNaN(value)) return '0';
+                    const rounded = Math.round(value * 1000) / 1000;
+                    return rounded.toLocaleString('zh-TW', { maximumFractionDigits: 3 });
+                };
+
+                const isPaidPriceOverTotal = computed(() => {
+                    const contract = syncData.contractPrice || 0;
+                    const paid = syncData.paidPrice || 0;
+                    return contract > 0 && paid > contract;
+                });
+
+                const autoUnpaidPrice = computed(() => {
+                    const contract = syncData.contractPrice || 0;
+                    const loanRate = buyerForm.loanRate || 0;
+                    const paid = syncData.paidPrice || 0;
+                    const val = contract - (contract * (loanRate / 100)) - paid;
+                    return val < 0 ? 0 : val;
+                });
+
+                const addDeal = () => {
+                    if (!inputDealPrice.value || inputDealPrice.value <= 0) return alert('請輸入預計成交總價');
+                    buyerResults.value.unshift({ id: Date.now(), dealPrice: inputDealPrice.value });
+                    inputDealPrice.value = null;
+                };
+
+                const computedBuyerResults = computed(() => {
+                    return buyerResults.value.map(res => {
+                        const dealPrice = res.dealPrice;
+                        const purePing = buyerForm.purePing || 0;
+                        const parkingPrice = buyerForm.parkingPrice || 0;
+                        const unitPrice = purePing > 0 ? ((dealPrice - parkingPrice) / purePing) : 0;
+                            
+                        const feeRate = buyerForm.feeRate || 0;
+                        const buyerFee = dealPrice * (feeRate / 100);
+                        const contractPrice = syncData.contractPrice || 0;
+                        const spread = dealPrice - contractPrice;
+                        
+                        const paidPrice = syncData.paidPrice || 0;
+                        const scrivenerFee = buyerForm.scrivenerFee || 0;
+                        
+                        const escrowFee = Math.max(0, (paidPrice + spread) * 3 / 10000);
+                        
+                        const escrow = buyerForm.escrow || 0;
+                        const unpaidPrice = autoUnpaidPrice.value; 
+                        
+                        const totalOwnCapital = paidPrice + spread + buyerFee + scrivenerFee + escrowFee;
+                        const finalPayment = unpaidPrice + escrow;
+
+                        return {
+                            id: res.id,
+                            dealPrice, unitPrice, buyerFee, feeRate, 
+                            spread, paidPrice, unpaidPrice, 
+                            escrow, scrivenerFee, escrowFee, totalOwnCapital, finalPayment 
+                        };
+                    });
+                });
+
+                const sellerForm = reactive({ 
+                    acquireDate: '2023-06-30', 
+                    transferDate: getTodayStr(), 
+                    dealPrice: null, 
+                    costMode: 'itemized', 
+                    customBrokerFee: 0 
+                });
+
+                watch(() => sellerForm.costMode, (newMode) => {
+                     // 切換模式時的防呆或狀態處理空間
+                });
+
+                watch(() => sellerForm.dealPrice, (newPrice) => {
+                    if (newPrice && newPrice > 0) {
+                        sellerForm.customBrokerFee = Math.round((newPrice * 0.04) * 1000) / 1000;
+                    } else {
+                        sellerForm.customBrokerFee = 0;
+                    }
+                });
+
+                const isAfterNewLaw = computed(() => {
+                    if (!sellerForm.acquireDate) return false;
+                    const checkDate = new Date('2023-07-01');
+                    const inputDate = new Date(sellerForm.acquireDate);
+                    return inputDate >= checkDate;
+                });
+
+                const sellerAutoEscrowFee = computed(() => {
+                    const paid = syncData.paidPrice || 0;
+                    const spread = (sellerForm.dealPrice || 0) - (syncData.contractPrice || 0);
+                    return Math.max(0, (paid + spread) * 3 / 10000);
+                });
+
+                const sellerAutoTransferFee = computed(() => {
+                    const contract = syncData.contractPrice || 0;
+                    return contract * 0.001;
+                });
+
+                const getDiffDays = () => {
+                    if (!sellerForm.acquireDate || !sellerForm.transferDate) return 0;
+                    const start = new Date(sellerForm.acquireDate);
+                    const end = new Date(sellerForm.transferDate);
+                    const diffTime = end - start;
+                    return isNaN(diffTime) ? 0 : Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                };
+
+                const sellerDurationText = computed(() => {
+                    const days = getDiffDays();
+                    if (days <= 0) return '日期設定有誤';
+                    const years = (days / 365).toFixed(2);
+                    return `${days.toLocaleString('zh-TW')} 天 (約 ${formatValue(years)} 年)`;
+                });
+
+                const sellerCurrentTier = computed(() => {
+                    const days = getDiffDays();
+                    const years = days / 365;
+                    if (years <= 2) return 45;
+                    if (years <= 5) return 35;
+                    if (years <= 10) return 20;
+                    return 15;
+                });
+
+                // 核心重構：依據報稅型態，動態調整「稅前獲利」與「稅金所得基數」
+                const sellerTaxTiers = computed(() => {
+                    const sellPrice = sellerForm.dealPrice || 0;
+                    const buyPrice = syncData.contractPrice || 0;
+                    const paidPrice = syncData.paidPrice || 0;
+                    
+                    // 🌟 修正1：稅前獲利算式依模式切換
+                    // 核實模式預扣 4% 服務費 (sellPrice * 0.96 - buyPrice)
+                    // 推計模式不提示證明，直接是全額總價差 (sellPrice - buyPrice)
+                    const beforeTaxProfit = sellerForm.costMode === 'itemized' 
+                        ? (sellPrice * 0.96 - buyPrice) 
+                        : (sellPrice - buyPrice);
+
+                    // 2. 依成本模式計算應稅所得基數
+                    let taxableIncomeBase = 0;
+                    if (sellerForm.costMode === 'itemized') {
+                        const brokerFee = sellerForm.customBrokerFee || 0;
+                        const escrowFee = sellerAutoEscrowFee.value;
+                        const transferFee = sellerAutoTransferFee.value;
+                        taxableIncomeBase = sellPrice - buyPrice - brokerFee - escrowFee - transferFee;
+                    } else {
+                        const contractSpread = sellPrice - buyPrice; 
+                        const rawDeductible = (paidPrice + contractSpread) * 0.03; 
+                        const standardDeductible = rawDeductible > 30 ? 30 : rawDeductible; // 取其低
+                        taxableIncomeBase = sellPrice - buyPrice - standardDeductible;
+                    }
+                    
+                    taxableIncomeBase = Math.max(0, taxableIncomeBase);
+
+                    // 3. 封裝級距函數
+                    const calc = (rate) => {
+                        const tax = taxableIncomeBase * (rate / 100);
+                        // 🌟 修正2：稅後獲利 = 當前切換出的稅前獲利 - 稅金
+                        const afterTaxProfit = beforeTaxProfit - tax;
+                        return { beforeTaxProfit, tax, afterTaxProfit };
+                    };
+
+                    return { tier45: calc(45), tier35: calc(35), tier20: calc(20), tier15: calc(15) };
+                });
+
+                const currentMatchedTaxObj = computed(() => {
+                    const tier = sellerCurrentTier.value;
+                    if (tier === 45) return sellerTaxTiers.value.tier45;
+                    if (tier === 35) return sellerTaxTiers.value.tier35;
+                    if (tier === 20) return sellerTaxTiers.value.tier20;
+                    return sellerTaxTiers.value.tier15;
+                });
+
+                return { 
+                    activeTab, syncData, buyerForm, inputDealPrice, buyerResults, computedBuyerResults, addDeal, autoUnpaidPrice, isPaidPriceOverTotal,
+                    removeBuyerResult: (i) => buyerResults.value.splice(i, 1), 
+                    sellerForm, sellerDurationText, sellerCurrentTier, sellerTaxTiers, currentMatchedTaxObj,
+                    isAfterNewLaw, sellerAutoEscrowFee, sellerAutoTransferFee,
+                    preventScrollChange, formatValue
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
